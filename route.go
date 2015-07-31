@@ -68,7 +68,7 @@ func NewRoute(pattern string, handler ContextHandler, authHandler AuthorizationH
 	return r, nil
 }
 
-// Call the route authorisation handler to authorize this route,
+// Authorize calls the route authorisation handler to authorize this route,
 // given the user, and (optionally) a model object
 func (r *Route) Authorize(c *Context, m OwnedModel) bool {
 
@@ -80,47 +80,47 @@ func (r *Route) Authorize(c *Context, m OwnedModel) bool {
 	return r.AuthHandler(c, m)
 }
 
-// Accept the GET method exclusively
+// Get sets the method exclusively to GET
 func (r *Route) Get() *Route {
 	return r.Method("GET")
 }
 
-// Accept the POST method exclusively
+// Post sets the method exclusively to POST
 func (r *Route) Post() *Route {
 	return r.Method("POST")
 }
 
-// Accept the PUT method exclusively
+// Put sets the method exclusively to PUT
 func (r *Route) Put() *Route {
 	return r.Method("PUT")
 }
 
-// Accept the DELETE method exclusively
+// Delete sets the method exclusively to DELETE
 func (r *Route) Delete() *Route {
 	return r.Method("DELETE")
 }
 
-// Set the (one) method we accept
+// Method sets the method exclusively to method
 func (r *Route) Method(method string) *Route {
 	r.methods = []string{method}
 	return r
 }
 
-// Accept the given method in addition to any already set
-func (r *Route) Accept(m string) *Route {
-	if !r.MatchMethod(m) {
-		r.methods = append(r.methods, m)
+// Accept allows the method provided
+func (r *Route) Accept(method string) *Route {
+	if !r.MatchMethod(method) {
+		r.methods = append(r.methods, method)
 	}
 	return r
 }
 
-// Set the methods we accept as an array
+// Methods sets the methods allowed as an array
 func (r *Route) Methods(permitted []string) *Route {
 	r.methods = permitted
 	return r
 }
 
-// Read our params using the regexp from the given path
+// Parse reads our params using the regexp from the given path
 func (r *Route) Parse(path string) {
 
 	// Set up our params map
@@ -145,7 +145,7 @@ func (r *Route) Parse(path string) {
 	}
 }
 
-// Set the Authorisation handler
+// Auth sets the Authorisation handler
 func (r *Route) Auth(handler AuthorizationHandler) *Route {
 	r.AuthHandler = handler
 	return r
@@ -156,6 +156,7 @@ func (r *Route) Reset() {
 	r.Params = nil
 }
 
+// MatchMethod returns true if our list of methods contains method
 func (r *Route) MatchMethod(method string) bool {
 
 	// We treat "" as GET by default
@@ -172,7 +173,7 @@ func (r *Route) MatchMethod(method string) bool {
 	return false
 }
 
-// Does this route definitely match the path?
+// MatchPath returns true if this route matches the path
 func (r *Route) MatchPath(path string) bool {
 
 	// Reject asset paths, which we don't handle (server should be handling)
@@ -203,6 +204,7 @@ func (r *Route) MatchPath(path string) bool {
 
 }
 
+// compileRegexp compiles our route format to a true regexp
 // Both name and regexp are required - routes should be well structured and restrictive by default
 // Convert the pattern from the form  /pages/{id:[0-9]*}/edit?param=test
 // to one suitable for regexp -  /pages/([0-9]*)/edit\?param=test
@@ -285,6 +287,7 @@ func shortPattern(p string) string {
 	return p[:l]
 }
 
+// String returns the route formatted as a string
 func (r *Route) String() string {
 	return fmt.Sprintf("%s %s", r.methods, r.Pattern)
 }

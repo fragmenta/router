@@ -6,10 +6,10 @@ import (
 	"time"
 )
 
-// Similar to url.Values, but with a few more utility functions
+// Params is similar to url.Values, but with a few more utility functions
 type Params map[string][]string
 
-// Gets the params as a flat map[string]string, discarding any multiple values.
+// Map gets the params as a flat map[string]string, discarding any multiple values.
 func (p Params) Map() map[string]string {
 	flat := make(map[string]string)
 
@@ -20,7 +20,7 @@ func (p Params) Map() map[string]string {
 	return flat
 }
 
-// Deflate a set of params to a comma separated list (only for simple params)
+// Flatten deflates a set of params (of any type) to a comma separated list (only for simple params)
 func (p Params) Flatten(k string) string {
 	flat := ""
 
@@ -38,14 +38,13 @@ func (p Params) Flatten(k string) string {
 	return flat
 }
 
-// Gets the first value associated with a given key as a time, using the given time format.
+// GetDate returns the first value associated with a given key as a time, using the given time format.
 func (p Params) GetDate(key string, format string) (time.Time, error) {
 	v := p.Get(key)
 	return time.Parse(format, v)
 }
 
-// Get gets the first value associated with the given key as an integer.
-// If there are no values returns 0.
+// GetInt returns the first value associated with the given key as an integer. If there is no value or a parse error, it returns 0
 func (p Params) GetInt(key string) int64 {
 	var i int64
 	v := p.Get(key)
@@ -56,7 +55,7 @@ func (p Params) GetInt(key string) int64 {
 	return i
 }
 
-// Get all values associated with the given key as an array of integers.
+// GetInts returns all values associated with the given key as an array of integers.
 func (p Params) GetInts(key string) []int64 {
 	ints := []int64{}
 
@@ -71,7 +70,7 @@ func (p Params) GetInts(key string) []int64 {
 	return ints
 }
 
-// Get all unique non-zero int values associated with the given key as an array of integers
+// GetUniqueInts returns all unique non-zero int values associated with the given key as an array of integers
 func (p Params) GetUniqueInts(key string) []int64 {
 	ints := []int64{}
 
@@ -91,7 +90,7 @@ func (p Params) GetUniqueInts(key string) []int64 {
 	return ints
 }
 
-// Get all values associated with the given key as an array of integers as a comma separated string
+// GetIntsString returns all values associated with the given key as a comma separated string
 func (p Params) GetIntsString(key string) string {
 	ints := ""
 
@@ -111,7 +110,7 @@ func (p Params) GetIntsString(key string) string {
 	return ints
 }
 
-// Access all values associated with the given key - equivalent to params[key].
+// GetAll returns all values associated with the given key - equivalent to params[key].
 func (p Params) GetAll(key string) []string {
 	return p[key]
 }
@@ -132,34 +131,33 @@ func (p Params) Get(key string) string {
 	return v[0]
 }
 
-// Check the value returned by the given key and return whether it is an empty string or not
-// This means it either doesn't exist or is set to ""
+// Blank returns true if the value corresponding to key is an empty string
 func (p Params) Blank(key string) bool {
 	v := p.Get(key)
 	return v == ""
 }
 
-// Sets the key to a string value replacing any existing values.
+// Set sets the key to a string value replacing any existing values.
 func (p Params) Set(key, value string) {
 	p[key] = []string{value}
 }
 
-// Sets the key to a single int value as string replacing any existing values.
+// SetInt sets the key to a single int value as string replacing any existing values.
 func (p Params) SetInt(key string, value int64) {
 	p[key] = []string{fmt.Sprintf("%d", value)}
 }
 
-// Adds the value, if necessary appending to any existing values associated with key.
+// Add adds the value, if necessary appending to any existing values associated with key.
 func (p Params) Add(key, value string) {
 	p[key] = append(p[key], value)
 }
 
-// Removes the values associated with key.
+// Remove deletes the values associated with key.
 func (p Params) Remove(key string) {
 	delete(p, key)
 }
 
-// Does this array of ints contain the given int?
+// Contains returns true if this array of ints contains the given int
 func Contains(list []int64, item int64) bool {
 	for _, b := range list {
 		if b == item {

@@ -6,7 +6,7 @@ import (
 	"net/http"
 )
 
-// Interface for a session store (backed by unknown storage)
+// SessionStore is the interface for a session store (backed by unknown storage)
 type SessionStore interface {
 	Get(string) string
 	Set(string, string)
@@ -15,17 +15,20 @@ type SessionStore interface {
 	Clear(http.ResponseWriter)
 }
 
-// Interface for a model which knows which pks own it
+// OwnedModel is the interface for a model which knows who owns it - TODO REMOVE WITH AUTH
 type OwnedModel interface {
 	OwnedBy(int64) bool
 }
 
-// Interface for a model which will return role and pk value
+// RoleModel is the interface for a model has roles (a user) - TODO REMOVE WITH AUTH
 type RoleModel interface {
 	RoleValue() int64
 	PrimaryKeyValue() int64
 }
 
+// TODO convert this to a concrete versino of an interface, and use the interface at all times - no need to tie users to this particular implementation.
+
+// Context is the request context, including a writer, the current request etc
 type Context struct {
 
 	// The current response writer
@@ -55,16 +58,25 @@ type Context struct {
 	config Config
 }
 
-func (c *Context) Log(format string, v ...interface{}) {
-	// Call our internal logger with these arguments
+// Logf logs the given message and arguments using our logger
+func (c *Context) Logf(format string, v ...interface{}) {
 	c.logger.Printf(format, v...)
 }
 
-// Call the route authorisation handler to authorise this route,
+// TODO: Replace usages of Log with Logf, then remove  v ...interface{}
+
+// Log logs the given message using our logger
+func (c *Context) Log(format string, v ...interface{}) {
+	c.logger.Printf(format, v...)
+}
+
+// TODO: Remove this completely - authorisation should be an app concern, not a framework one
+
+// Authorize calls the route authorisation handler to authorise this route,
 // given the user, and (optionally) a model object
 func (c *Context) Authorize(o ...OwnedModel) bool {
 	if c.Route == nil {
-		c.Log("ERROR: Attempt to authorize without route for path %s", c.Path)
+		c.Logf("ERROR: Attempt to authorize without route for path %s", c.Path)
 		return false
 	}
 
@@ -76,7 +88,7 @@ func (c *Context) Authorize(o ...OwnedModel) bool {
 	return c.Route.Authorize(c, m)
 }
 
-// Load and return ALL the params from the request
+// Params loads and return all the params from the request
 func (c *Context) Params() (Params, error) {
 	params := Params{}
 
@@ -109,7 +121,7 @@ func (c *Context) Params() (Params, error) {
 	return params, nil
 }
 
-// Retrieve a single param value, ignoring multiple values
+// Param retreives a single param value, ignoring multiple values
 // This may trigger a parse of the request and route
 func (c *Context) Param(key string) string {
 
@@ -122,7 +134,7 @@ func (c *Context) Param(key string) string {
 	return params.Get(key)
 }
 
-// Retrieve a single param value as int, ignoring multiple values
+// ParamInt retreives a single param value as int, ignoring multiple values
 // This may trigger a parse of the request and route
 func (c *Context) ParamInt(key string) int64 {
 	params, err := c.Params()
@@ -134,11 +146,11 @@ func (c *Context) ParamInt(key string) int64 {
 	return params.GetInt(key)
 }
 
+// ParamFiles retreives the files from params
 // NB this requires ParseMultipartForm to be called
-// HMM not working - ERROR:http: multipart handled by ParseMultipartForm
 func (c *Context) ParamFiles(key string) ([]*multipart.Part, error) {
 
-	parts := make([]*multipart.Part, 0)
+	var parts []*multipart.Part
 
 	//get the multipart reader for the request.
 	reader, err := c.Request.MultipartReader()
@@ -167,45 +179,35 @@ func (c *Context) ParamFiles(key string) ([]*multipart.Part, error) {
 	return parts, nil
 }
 
-// Used by view to extract relevant objects
+// CurrentPath returns the path for the request
 func (c *Context) CurrentPath() string {
 	return c.Path
 }
 
+// CurrentUser returns the user for the request
 func (c *Context) CurrentUser() interface{} {
 	return c.User
 }
 
+// Config returns a key from the context config
 func (c *Context) Config(key string) string {
 	return c.config.Config(key)
 }
 
+// Production returns whether this context is running in production
 func (c *Context) Production() bool {
 	return c.config.Production()
 }
 
-// Redirect uses status 302 by default - this is not a permanent redirect
+// Redirect uses status 302 StatusFound by default - this is not a permanent redirect
 // We don't accept external or relative paths for security reasons
 func Redirect(context *Context, path string) {
-
-	// Check for redirect in params, if it is valid, use that instead of default path
-	redirect := context.Param("redirect")
-	if len(redirect) > 0 {
-		path = redirect
-	}
-
-	// We check this is an internal path - to redirect externally use http.Redirect directly
-	if AbsoluteInternalPath(path) {
-		// 301 - http.StatusMovedPermanently - permanent redirect
-		// 302 - http.StatusFound - tmp redirect
-		http.Redirect(context.Writer, context.Request, path, http.StatusFound)
-	} else {
-		context.Log("#error Ignoring redirect to external path")
-	}
-
+	// 301 - http.StatusMovedPermanently - permanent redirect
+	// 302 - http.StatusFound - tmp redirect
+	RedirectStatus(context, path, http.StatusFound)
 }
 
-// Redirect setting the status code (for example unauthorized)
+// RedirectStatus redirects setting the status code (for example unauthorized)
 // We don't accept external or relative paths for security reasons
 func RedirectStatus(context *Context, path string, status int) {
 
@@ -217,21 +219,25 @@ func RedirectStatus(context *Context, path string, status int) {
 
 	// We check this is an internal path - to redirect externally use http.Redirect directly
 	if AbsoluteInternalPath(path) {
-		// Status may be 301,302 or 401 access denied etc
+		// Status may be any value, e.g.
+		// 301 - http.StatusMovedPermanently - permanent redirect
+		// 302 - http.StatusFound - tmp redirect
+		// 401 - Access denied
 		http.Redirect(context.Writer, context.Request, path, status)
+		return
 	}
+
+	context.Log("#error Ignoring redirect to external path")
 }
 
-// Redirect setting the status code (for example unauthorized)
-// We don't accept external or relative paths for security reasons
+// RedirectExternal redirects setting the status code (for example unauthorized), but does no checks on the path
+// Use with caution.
 func RedirectExternal(context *Context, path string) {
-	// 301 - http.StatusMovedPermanently - permanent redirect
-	// 302 - http.StatusFound - tmp redirect
 	http.Redirect(context.Writer, context.Request, path, http.StatusFound)
 
 }
 
-// Parse our params from the request form (if any)
+// parseRequest parses our params from the request form (if any)
 func (c *Context) parseRequest() error {
 
 	// If we have no request body, return
@@ -251,7 +257,7 @@ func (c *Context) parseRequest() error {
 	return nil
 }
 
-// Ask for a specific param from the route - this may return empty string
+// routeParam returns a param from the route - this may return empty string
 func (c *Context) routeParam(key string) string {
 
 	// If we don't have params already, load them

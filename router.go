@@ -80,10 +80,14 @@ func New(l Logger, s Config) (*Router, error) {
 	return r, nil
 }
 
-// Log this format and arguments
-func (r *Router) Log(format string, v ...interface{}) {
-	// Call our internal logger with these arguments
+// Logf logs this message and the given arguments
+func (r *Router) Logf(format string, v ...interface{}) {
 	r.Logger.Printf(format, v...)
+}
+
+// Log this format and arguments
+func (r *Router) Log(message string) {
+	r.Logf(message)
 }
 
 // Add a new route
@@ -91,7 +95,7 @@ func (r *Router) Add(pattern string, handler ContextHandler) *Route {
 	// Create a new route
 	route, err := NewRoute(pattern, handler, r.AuthHandler)
 	if err != nil {
-		r.Log("Creating regexp failed for route %s:%s", pattern, err)
+		r.Logf("Creating regexp failed for route %s:%s", pattern, err)
 	}
 
 	// Store this route in the router
@@ -110,7 +114,7 @@ func (r *Router) AddRedirect(pattern string, redirectPath string, status int) *R
 	// Create a new route for redirecting - NB no handler or auth handler
 	route, err := NewRoute(pattern, nil, nil)
 	if err != nil {
-		r.Log("Creating redirect failed for route %s:%s", pattern, err)
+		r.Logf("Creating redirect failed for route %s:%s", pattern, err)
 	}
 	route.RedirectPath = redirectPath
 	route.RedirectStatus = status
@@ -168,7 +172,7 @@ func (r *Router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	// Log starting the request
 	logging := !strings.HasPrefix(canonicalPath, "/assets") && !strings.HasPrefix(canonicalPath, "/files")
 	if logging {
-		r.Log("Started %s", summary)
+		r.Logf("Started %s", summary)
 	}
 
 	// Set up a handler to handle request if not redirected
@@ -182,7 +186,7 @@ func (r *Router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	if route != nil {
 
 		if logging {
-			r.Log("Handling with route %s", route)
+			r.Logf("Handling with route %s", route)
 		}
 
 		if route.Handler != nil {
@@ -211,7 +215,7 @@ func (r *Router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		err := f(context)
 		if err != nil {
 			end := time.Since(started).String()
-			r.Log("Filter error at %s in %s ERROR:%s", summary, err, end)
+			r.Logf("Filter error at %s in %s ERROR:%s", summary, err, end)
 			return
 		}
 	}
@@ -226,7 +230,7 @@ func (r *Router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		end := time.Since(started).String()
 
 		if logging {
-			r.Log("Finished %s status %d in %s", summary, status, end)
+			r.Logf("Finished %s status %d in %s", summary, status, end)
 		}
 
 	} else {
