@@ -115,7 +115,7 @@ func (r *Route) Accept(method string) *Route {
 }
 
 // Methods sets the methods allowed as an array
-func (r *Route) Methods(permitted []string) *Route {
+func (r *Route) Methods(permitted ...string) *Route {
 	r.methods = permitted
 	return r
 }
