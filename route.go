@@ -14,9 +14,6 @@ type Route struct {
 	// An HTTP handler which accepts a context
 	Handler ContextHandler
 
-	// An authorisation handler
-	AuthHandler AuthorizationHandler
-
 	// If the route is simply a string we match against that
 	Pattern string
 
@@ -43,11 +40,10 @@ type Route struct {
 }
 
 // NewRoute creates a new Route, given a pattern to match and a handler for the route
-func NewRoute(pattern string, handler ContextHandler, authHandler AuthorizationHandler) (*Route, error) {
+func NewRoute(pattern string, handler ContextHandler) (*Route, error) {
 
 	r := &Route{
 		Handler:      handler,
-		AuthHandler:  authHandler,
 		Pattern:      pattern,
 		PatternShort: shortPattern(pattern),
 		Regexp:       nil,
@@ -66,18 +62,6 @@ func NewRoute(pattern string, handler ContextHandler, authHandler AuthorizationH
 	}
 
 	return r, nil
-}
-
-// Authorize calls the route authorisation handler to authorize this route,
-// given the user, and (optionally) a model object
-func (r *Route) Authorize(c *Context, m OwnedModel) bool {
-
-	// Our handler itself must not be nil
-	if r.AuthHandler == nil {
-		return false
-	}
-
-	return r.AuthHandler(c, m)
 }
 
 // Get sets the method exclusively to GET
@@ -143,12 +127,6 @@ func (r *Route) Parse(path string) {
 
 		}
 	}
-}
-
-// Auth sets the Authorisation handler
-func (r *Route) Auth(handler AuthorizationHandler) *Route {
-	r.AuthHandler = handler
-	return r
 }
 
 // Reset stored state in routes (parsed params)

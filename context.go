@@ -44,12 +44,6 @@ type Context struct {
 	// The handling route
 	Route *Route
 
-	// The authorisation user
-	User RoleModel
-
-	// The session store
-	Session SessionStore
-
 	// Errors which occured during routing or rendering
 	Errors []error
 
@@ -69,24 +63,6 @@ func (c *Context) Logf(format string, v ...interface{}) {
 // Log logs the given message using our logger
 func (c *Context) Log(format string, v ...interface{}) {
 	c.logger.Printf(format, v...)
-}
-
-// TODO: Remove this completely - authorisation should be an app concern, not a framework one
-
-// Authorize calls the route authorisation handler to authorise this route,
-// given the user, and (optionally) a model object
-func (c *Context) Authorize(o ...OwnedModel) bool {
-	if c.Route == nil {
-		c.Logf("#error Attempt to authorize without route for path %s", c.Path)
-		return false
-	}
-
-	var m OwnedModel
-	if len(o) > 0 {
-		m = o[0]
-	}
-
-	return c.Route.Authorize(c, m)
 }
 
 // Params loads and return all the params from the request
@@ -183,11 +159,6 @@ func (c *Context) ParamFiles(key string) ([]*multipart.Part, error) {
 // CurrentPath returns the path for the request
 func (c *Context) CurrentPath() string {
 	return c.Path
-}
-
-// CurrentUser returns the user for the request
-func (c *Context) CurrentUser() interface{} {
-	return c.User
 }
 
 // Config returns a key from the context config

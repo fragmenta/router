@@ -35,9 +35,6 @@ type Config interface {
 // Router stores and handles the routes
 type Router struct {
 
-	// Default Authorization handler for routes
-	AuthHandler AuthorizationHandler
-
 	// File handler
 	FileHandler ContextHandler
 
@@ -57,7 +54,6 @@ type Router struct {
 // New creates a new router
 func New(l Logger, s Config) (*Router, error) {
 	r := &Router{
-		AuthHandler: authorizeNoneHandler, // FIXME remove
 		FileHandler: fileHandler,
 		Logger:      l,
 		Config:      s,
@@ -81,7 +77,7 @@ func (r *Router) Log(message string) {
 // Add a new route
 func (r *Router) Add(pattern string, handler ContextHandler) *Route {
 	// Create a new route
-	route, err := NewRoute(pattern, handler, r.AuthHandler)
+	route, err := NewRoute(pattern, handler)
 	if err != nil {
 		r.Logf("#error Creating regexp failed for route %s:%s", pattern, err)
 	}
@@ -97,7 +93,7 @@ func (r *Router) Add(pattern string, handler ContextHandler) *Route {
 func (r *Router) AddRedirect(pattern string, redirectPath string, status int) *Route {
 
 	// Create a new route for redirecting - NB no handler or auth handler
-	route, err := NewRoute(pattern, nil, nil)
+	route, err := NewRoute(pattern, nil)
 	if err != nil {
 		r.Logf("#error Creating redirect failed for route %s:%s", pattern, err)
 	}
@@ -179,8 +175,6 @@ func (r *Router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		Writer:  writer,
 		Request: request,
 		Path:    canonicalPath,
-		User:    nil,
-		Session: nil,
 		Route:   route,
 		logger:  r.Logger,
 		config:  r.Config,
