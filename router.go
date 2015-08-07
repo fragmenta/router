@@ -10,16 +10,11 @@ import (
 	"time"
 )
 
-// FIXME - remove FilterHandler and AuthorizationHandler, change ContextHandler to take an interface, not a pointer
-
 // ContextHandler handles
 type ContextHandler func(*Context)
 
 // FilterHandler should be removed as unused at present
 type FilterHandler func(*Context) error
-
-// AuthorizationHandler is to be removed soon
-type AuthorizationHandler func(context *Context, model OwnedModel) bool
 
 // Logger Interface for a simple logger (the stdlib log pkg and the fragmenta log pkg conform)
 type Logger interface {
@@ -242,10 +237,4 @@ func fileHandler(context *Context) {
 
 	// If the file exists and we can access it, serve it
 	http.ServeFile(context.Writer, context.Request, localPath)
-}
-
-// Default provides no authorisation
-func authorizeNoneHandler(context *Context, model OwnedModel) bool {
-	fmt.Println("#warn Ignoring authorization")
-	return true
 }

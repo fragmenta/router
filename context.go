@@ -7,27 +7,26 @@ import (
 	"strings"
 )
 
-// SessionStore is the interface for a session store (backed by unknown storage)
-type SessionStore interface {
-	Get(string) string
-	Set(string, string)
-	Load(request *http.Request) error
-	Save(http.ResponseWriter) error
-	Clear(http.ResponseWriter)
-}
+// ContextI is a request context wrapping a response writer and the request details
+type ContextI interface {
+	// Context acts as a facade on responseWriter
+	http.ResponseWriter
 
-// OwnedModel is the interface for a model which knows who owns it - TODO REMOVE WITH AUTH
-type OwnedModel interface {
-	OwnedBy(int64) bool
-}
+	// Request returns the http.Request embedded in this context
+	Request() *http.Request
 
-// RoleModel is the interface for a model has roles (a user) - TODO REMOVE WITH AUTH
-type RoleModel interface {
-	RoleValue() int64
-	PrimaryKeyValue() int64
-}
+	// Request returns the cleaned path for this request
+	Path() string
 
-// TODO convert this to a concrete versino of an interface, and use the interface at all times - no need to tie users to this particular implementation.
+	// Route returns the route handling for this request
+	Route() *Route
+
+	// Config returns a key from the context config
+	Config(key string) string
+
+	// Param returns a key from the request params
+	Param(key string) string
+}
 
 // Context is the request context, including a writer, the current request etc
 type Context struct {
