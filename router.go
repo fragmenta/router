@@ -11,10 +11,10 @@ import (
 )
 
 // ContextHandler handles
-type ContextHandler func(*Context)
+type ContextHandler func(Context)
 
 // FilterHandler should be removed as unused at present
-type FilterHandler func(*Context) error
+type FilterHandler func(Context) error
 
 // Logger Interface for a simple logger (the stdlib log pkg and the fragmenta log pkg conform)
 type Logger interface {
@@ -166,11 +166,11 @@ func (r *Router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	// Setup the context
-	context := &Context{
-		Writer:  writer,
-		Request: request,
-		Path:    canonicalPath,
-		Route:   route,
+	context := &ConcreteContext{
+		writer:  writer,
+		request: request,
+		path:    canonicalPath,
+		route:   route,
 		logger:  r.Logger,
 		config:  r.Config,
 	}
@@ -218,7 +218,7 @@ func (r *Router) findRoute(canonicalPath string, request *http.Request) *Route {
 }
 
 // Default static file handler - this is the last line of handlers
-func fileHandler(context *Context) {
+func fileHandler(context Context) {
 
 	// Assuming we're running from the root of the website
 	localPath := "./public" + path.Clean(context.Path)
@@ -234,6 +234,7 @@ func fileHandler(context *Context) {
 		http.Redirect(context.Writer, context.Request, context.Path, http.StatusUnauthorized)
 		return
 	}
+
 
 	// If the file exists and we can access it, serve it
 	http.ServeFile(context.Writer, context.Request, localPath)
