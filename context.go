@@ -1,7 +1,6 @@
 package router
 
 import (
-	"io"
 	"mime/multipart"
 	"net/http"
 	"strings"
@@ -36,6 +35,18 @@ type Context interface {
 	// ParamInt returns an int64 key from the request params
 	ParamInt(key string) int64
 
+	// ParamFiles parses the request as multipart, and then returns the file parts for this key
+	ParamFiles(key string) ([]*multipart.FileHeader, error)
+
+	// Store arbitrary data for this request
+	Set(key string, data interface{})
+
+	// Retreive arbitrary data for this request
+	Get(key string) interface{}
+
+	// Return the rendering context (our data)
+	RenderContext() map[string]interface{}
+
 	// Log a message
 	Log(message string)
 
@@ -61,7 +72,11 @@ type ConcreteContext struct {
 	// The context log passed from router
 	logger Logger
 
+	// The app config usually loaded from fragmenta.json
 	config Config
+
+	// Arbitrary user data stored in a map
+	data map[string]interface{}
 }
 
 // Request returns the current http Request
@@ -104,6 +119,8 @@ func (c *ConcreteContext) Log(message string) {
 // Params loads and return all the params from the request
 func (c *ConcreteContext) Params() (Params, error) {
 	params := Params{}
+
+	// Can we somehow parse multipart instead if the request is a multipart request?
 
 	// If we don't have params already, parse the request
 	if c.request.Form == nil {
@@ -159,37 +176,47 @@ func (c *ConcreteContext) ParamInt(key string) int64 {
 	return params.GetInt(key)
 }
 
-// ParamFiles retreives the files from params
-// NB this requires ParseMultipartForm to be called
-func (c *ConcreteContext) ParamFiles(key string) ([]*multipart.Part, error) {
+// ParamFiles parses the request as multipart, and then returns the file parts for this key
+// NB it calls ParseMultipartForm prior to reading the parts
+func (c *ConcreteContext) ParamFiles(key string) ([]*multipart.FileHeader, error) {
+	var parts []*multipart.FileHeader
 
-	var parts []*multipart.Part
-
-	//get the multipart reader for the request.
-	reader, err := c.request.MultipartReader()
-
+	err := c.request.ParseMultipartForm(1024 * 20)
 	if err != nil {
 		return parts, err
 	}
 
-	//copy each part.
-	for {
+	return c.request.MultipartForm.File[key], nil
 
-		part, err := reader.NextPart()
-		if err == io.EOF {
-			break
-		}
+	/*
+		// Research the best approach here
+			//get the multipart reader for the request.
+			reader, err := c.request.MultipartReader()
 
-		//if part.FileName() is empty, skip this iteration.
-		if part.FileName() == "" {
-			continue
-		}
+			if err != nil {
+				return parts, err
+			}
 
-		parts = append(parts, part)
+			//copy each part.
+			for {
 
-	}
+				part, err := reader.NextPart()
+				if err == io.EOF {
+					break
+				}
 
-	return parts, nil
+				//if part.FileName() is empty, skip this iteration.
+				if part.FileName() == "" {
+					continue
+				}
+
+				parts = append(parts, part)
+
+			}
+
+			return parts, nil
+
+	*/
 }
 
 // Path returns the path for the request
@@ -207,12 +234,14 @@ func (c *ConcreteContext) Production() bool {
 	return c.config.Production()
 }
 
-// Redirect uses status 302 StatusFound by default - this is not a permanent redirect
-// We don't accept external or relative paths for security reasons
-func Redirect(context Context, path string) {
-	// 301 - http.StatusMovedPermanently - permanent redirect
-	// 302 - http.StatusFound - tmp redirect
-	RedirectStatus(context, path, http.StatusFound)
+// Set saves arbitrary data for this request
+func (c *ConcreteContext) Set(key string, data interface{}) {
+	c.data[key] = data
+}
+
+// Get retreives arbitrary data for this request
+func (c *ConcreteContext) Get(key string) interface{} {
+	return c.data[key]
 }
 
 // RedirectStatus redirects setting the status code (for example unauthorized)
@@ -240,11 +269,9 @@ func RedirectStatus(context Context, path string, status int) {
 	context.Logf("#error Ignoring redirect to external path %s", path)
 }
 
-// RedirectExternal redirects setting the status code (for example unauthorized), but does no checks on the path
-// Use with caution.
-func RedirectExternal(context Context, path string) {
-	http.Redirect(context, context.Request(), path, http.StatusFound)
-
+// RenderContext returns a context for rendering the view
+func (c *ConcreteContext) RenderContext() map[string]interface{} {
+	return c.data
 }
 
 // parseRequest parses our params from the request form (if any)

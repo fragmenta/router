@@ -10,11 +10,8 @@ import (
 	"time"
 )
 
-// ContextHandler handles
+// ContextHandler is our standard handler function, accepting a router.Context interface
 type ContextHandler func(Context)
-
-// FilterHandler should be removed as unused at present
-type FilterHandler func(Context) error
 
 // Logger Interface for a simple logger (the stdlib log pkg and the fragmenta log pkg conform)
 type Logger interface {
@@ -41,9 +38,10 @@ type Router struct {
 
 	// A list of routes
 	routes []*Route
-
-	// A list of pre-action filters
-	filters []FilterHandler
+    
+	// A list of pre-action filters, applied before any handler
+	filters []ContextHandler
+    
 }
 
 // New creates a new router
@@ -103,7 +101,7 @@ func (r *Router) AddRedirect(pattern string, redirectPath string, status int) *R
 }
 
 // AddFilter adds a new filter
-func (r *Router) AddFilter(filter FilterHandler) {
+func (r *Router) AddFilter(filter ContextHandler) {
 	// Store this filter in the router list
 	r.filters = append(r.filters, filter)
 
@@ -173,6 +171,7 @@ func (r *Router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		route:   route,
 		logger:  r.Logger,
 		config:  r.Config,
+		data:    make(map[string]interface{}, 0),
 	}
 
 	// Call any filters
@@ -238,4 +237,42 @@ func fileHandler(context Context) {
 
 	// If the file exists and we can access it, serve it
 	http.ServeFile(context.Writer, context.Request, localPath)
+}
+
+// Redirect uses status 302 StatusFound by default - this is not a permanent redirect
+// We don't accept external or relative paths for security reasons
+func Redirect(context Context, path string) {
+	// 301 - http.StatusMovedPermanently - permanent redirect
+	// 302 - http.StatusFound - tmp redirect
+	RedirectStatus(context, path, http.StatusFound)
+}
+
+// RedirectStatus redirects setting the status code (for example unauthorized)
+// We don't accept external or relative paths for security reasons
+func RedirectStatus(context Context, path string, status int) {
+
+	// Check for redirect in params, if it is valid, use that instead of default path
+	redirect := context.Param("redirect")
+	if len(redirect) > 0 {
+		path = redirect
+	}
+
+	// We check this is an internal path - to redirect externally use http.Redirect directly
+	if AbsoluteInternalPath(path) {
+		// Status may be any value, e.g.
+		// 301 - http.StatusMovedPermanently - permanent redirect
+		// 302 - http.StatusFound - tmp redirect
+		// 401 - Access denied
+		http.Redirect(context, context.Request(), path, status)
+		return
+	}
+
+	context.Log("#error Ignoring redirect to external path")
+}
+
+// RedirectExternal redirects setting the status code (for example unauthorized), but does no checks on the path
+// Use with caution.
+func RedirectExternal(context Context, path string) {
+	http.Redirect(context, context.Request(), path, http.StatusFound)
+
 }

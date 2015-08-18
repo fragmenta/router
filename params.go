@@ -3,6 +3,7 @@ package router
 import (
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -45,9 +46,12 @@ func (p Params) GetDate(key string, format string) (time.Time, error) {
 }
 
 // GetInt returns the first value associated with the given key as an integer. If there is no value or a parse error, it returns 0
+// If the string contains non-numeric characters, they are first stripped
 func (p Params) GetInt(key string) int64 {
 	var i int64
 	v := p.Get(key)
+	// We truncate the string at the first non-numeric character
+	v = v[0 : strings.LastIndexAny(v, "0123456789")+1]
 	i, err := strconv.ParseInt(v, 10, 64)
 	if err != nil {
 		return 0
