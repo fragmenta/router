@@ -118,16 +118,6 @@ func (r *Router) AddFilter(filter FilterHandler) {
 
 }
 
-// AbsoluteInternalPath paths don't contain : and start with /
-func AbsoluteInternalPath(path string) bool {
-
-	if strings.HasPrefix(path, "/") && !strings.Contains(path, ":") {
-		return true
-	}
-
-	return false
-}
-
 // Reset stored state in routes (parsed params)
 func (r *Router) Reset() {
 	for _, r := range r.routes {

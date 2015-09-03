@@ -4,6 +4,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"strings"
 )
 
 // SessionStore is the interface for a session store (backed by unknown storage)
@@ -218,7 +219,7 @@ func RedirectStatus(context *Context, path string, status int) {
 	}
 
 	// We check this is an internal path - to redirect externally use http.Redirect directly
-	if AbsoluteInternalPath(path) {
+	if strings.HasPrefix(path, "/") && !strings.Contains(path, ":") {
 		// Status may be any value, e.g.
 		// 301 - http.StatusMovedPermanently - permanent redirect
 		// 302 - http.StatusFound - tmp redirect
@@ -227,7 +228,7 @@ func RedirectStatus(context *Context, path string, status int) {
 		return
 	}
 
-	context.Log("#error Ignoring redirect to external path")
+	context.Logf("#error Ignoring redirect to external path %s", path)
 }
 
 // RedirectExternal redirects setting the status code (for example unauthorized), but does no checks on the path
