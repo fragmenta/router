@@ -38,15 +38,6 @@ type Router struct {
 	// Default Authorization handler for routes
 	AuthHandler AuthorizationHandler
 
-	// Home Handler
-	RootHandler ContextHandler
-
-	// Not found handler
-	NotFoundHandler ContextHandler
-
-	// Not authorized handler
-	NotAuthorizedHandler ContextHandler
-
 	// File handler
 	FileHandler ContextHandler
 
@@ -66,13 +57,10 @@ type Router struct {
 // New creates a new router
 func New(l Logger, s Config) (*Router, error) {
 	r := &Router{
-		RootHandler:          welcomeHandler,
-		NotFoundHandler:      notFoundHandler,
-		NotAuthorizedHandler: notAuthorizedHandler,
-		AuthHandler:          authorizeNoneHandler,
-		FileHandler:          fileHandler,
-		Logger:               l,
-		Config:               s,
+		AuthHandler: authorizeNoneHandler, // FIXME remove
+		FileHandler: fileHandler,
+		Logger:      l,
+		Config:      s,
 	}
 
 	// Set our router to handle all routes
@@ -100,9 +88,6 @@ func (r *Router) Add(pattern string, handler ContextHandler) *Route {
 
 	// Store this route in the router
 	r.routes = append(r.routes, route)
-	if pattern == "/" {
-		r.RootHandler = handler
-	}
 
 	// Return route for chaining
 	return route
@@ -155,6 +140,10 @@ func (r *Router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	// Reset any cached state at the end of each request
 	defer r.Reset()
 
+	// Started GET "/" for 127.0.0.1 at 2014-07-01 14:15:32 +0100
+	started := time.Now()
+	summary := fmt.Sprintf("%s %s for %s", request.Method, request.URL.Path, request.RemoteAddr)
+
 	// Clean the path
 	canonicalPath := path.Clean(request.URL.Path)
 	if len(canonicalPath) == 0 {
@@ -165,11 +154,8 @@ func (r *Router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 
 	status := 200
 
-	// Started GET "/" for 127.0.0.1 at 2014-07-01 14:15:32 +0100
-	started := time.Now()
-	summary := fmt.Sprintf("%s %s for %s", request.Method, request.URL.Path, request.RemoteAddr)
-
-	// Log starting the request
+	// Log starting the request - we should have some way of excluding logs
+	// not hard-coded like this FIXME
 	logging := !strings.HasPrefix(canonicalPath, "/assets") && !strings.HasPrefix(canonicalPath, "/files")
 	if logging {
 		r.Logf("Started %s", summary)
@@ -234,9 +220,8 @@ func (r *Router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		}
 
 	} else {
-		// If no route or handler, try default handlers and files
-		handler = r.fileHandler(canonicalPath, request)
-		handler(context)
+		// If no route or handler, try default file handler to serve static files
+		r.FileHandler(context)
 	}
 
 }
@@ -253,43 +238,26 @@ func (r *Router) findRoute(canonicalPath string, request *http.Request) *Route {
 	return nil
 }
 
-// This must always return a handler - NB Canonical path must have been cleaned first
-func (r *Router) fileHandler(canonicalPath string, request *http.Request) ContextHandler {
+// Default static file handler - this is the last line of handlers
+func fileHandler(context *Context) {
 
 	// Assuming we're running from the root of the website
-	localPath := "./public" + canonicalPath
+	localPath := "./public" + path.Clean(context.Path)
 
 	if _, err := os.Stat(localPath); err != nil {
 		if os.IsNotExist(err) {
-			return r.NotFoundHandler
+			// Where it doesn't exist render not found
+			http.Redirect(context.Writer, context.Request, context.Path, http.StatusNotFound)
+			return
 		}
 
-		return r.NotAuthorizedHandler
+		// For other errors return not authorised
+		http.Redirect(context.Writer, context.Request, context.Path, http.StatusUnauthorized)
+		return
 	}
 
-	return r.FileHandler
-
-}
-
-// Default handler for "/" - Fix this with something more involved - serve a template not sure if this should exist...
-func welcomeHandler(context *Context) {
-	fmt.Fprintf(context.Writer, "Hello World!")
-}
-
-// Default static file handler (used for development)
-func fileHandler(context *Context) {
-	localPath := "./public" + path.Clean(context.Path)
+	// If the file exists and we can access it, serve it
 	http.ServeFile(context.Writer, context.Request, localPath)
-}
-
-// Default not found handler
-func notFoundHandler(context *Context) {
-	http.Redirect(context.Writer, context.Request, context.Path, http.StatusNotFound)
-}
-
-// Default not authorized handler
-func notAuthorizedHandler(context *Context) {
-	http.Redirect(context.Writer, context.Request, context.Path, http.StatusUnauthorized)
 }
 
 // Default provides no authorisation
