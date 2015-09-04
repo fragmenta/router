@@ -77,7 +77,7 @@ func (c *Context) Log(format string, v ...interface{}) {
 // given the user, and (optionally) a model object
 func (c *Context) Authorize(o ...OwnedModel) bool {
 	if c.Route == nil {
-		c.Logf("ERROR: Attempt to authorize without route for path %s", c.Path)
+		c.Logf("#error Attempt to authorize without route for path %s", c.Path)
 		return false
 	}
 
@@ -97,7 +97,7 @@ func (c *Context) Params() (Params, error) {
 	if c.Request.Form == nil {
 		err := c.parseRequest()
 		if err != nil {
-			c.Log("Error parsing request params:", err)
+			c.Log("#error parsing request params:", err)
 			return nil, err
 		}
 
@@ -128,7 +128,7 @@ func (c *Context) Param(key string) string {
 
 	params, err := c.Params()
 	if err != nil {
-		c.Log("Error parsing request:", err)
+		c.Logf("#error parsing request:", err)
 		return ""
 	}
 
@@ -140,7 +140,7 @@ func (c *Context) Param(key string) string {
 func (c *Context) ParamInt(key string) int64 {
 	params, err := c.Params()
 	if err != nil {
-		c.Log("Error parsing request:", err)
+		c.Logf("#error parsing request:", err)
 		return 0
 	}
 
@@ -213,6 +213,7 @@ func Redirect(context *Context, path string) {
 func RedirectStatus(context *Context, path string, status int) {
 
 	// Check for redirect in params, if it is valid, use that instead of default path
+	// This is potentially surprising behaviour - find where used and REMOVE IT FIXME:URGENT
 	redirect := context.Param("redirect")
 	if len(redirect) > 0 {
 		path = redirect
@@ -224,6 +225,7 @@ func RedirectStatus(context *Context, path string, status int) {
 		// 301 - http.StatusMovedPermanently - permanent redirect
 		// 302 - http.StatusFound - tmp redirect
 		// 401 - Access denied
+		context.Logf("#info Redirecting (%d) to path:%s", status, path)
 		http.Redirect(context.Writer, context.Request, path, status)
 		return
 	}

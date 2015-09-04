@@ -83,7 +83,7 @@ func (r *Router) Add(pattern string, handler ContextHandler) *Route {
 	// Create a new route
 	route, err := NewRoute(pattern, handler, r.AuthHandler)
 	if err != nil {
-		r.Logf("Creating regexp failed for route %s:%s", pattern, err)
+		r.Logf("#error Creating regexp failed for route %s:%s", pattern, err)
 	}
 
 	// Store this route in the router
@@ -99,7 +99,7 @@ func (r *Router) AddRedirect(pattern string, redirectPath string, status int) *R
 	// Create a new route for redirecting - NB no handler or auth handler
 	route, err := NewRoute(pattern, nil, nil)
 	if err != nil {
-		r.Logf("Creating redirect failed for route %s:%s", pattern, err)
+		r.Logf("#error Creating redirect failed for route %s:%s", pattern, err)
 	}
 	route.RedirectPath = redirectPath
 	route.RedirectStatus = status
@@ -148,7 +148,7 @@ func (r *Router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	// not hard-coded like this FIXME
 	logging := !strings.HasPrefix(canonicalPath, "/assets") && !strings.HasPrefix(canonicalPath, "/files")
 	if logging {
-		r.Logf("Started %s", summary)
+		r.Logf("#info Started %s", summary)
 	}
 
 	// Set up a handler to handle request if not redirected
@@ -162,7 +162,7 @@ func (r *Router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	if route != nil {
 
 		if logging {
-			r.Logf("Handling with route %s", route)
+			r.Logf("#info Handling with route %s", route)
 		}
 
 		if route.Handler != nil {
@@ -191,7 +191,7 @@ func (r *Router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		err := f(context)
 		if err != nil {
 			end := time.Since(started).String()
-			r.Logf("Filter error at %s in %s ERROR:%s", summary, err, end)
+			r.Logf("#error Filter error at %s in %s ERROR:%s", summary, err, end)
 			return
 		}
 	}
@@ -206,7 +206,7 @@ func (r *Router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		end := time.Since(started).String()
 
 		if logging {
-			r.Logf("Finished %s status %d in %s", summary, status, end)
+			r.Logf("#info Finished %s status %d in %s", summary, status, end)
 		}
 
 	} else {
