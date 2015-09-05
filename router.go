@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -26,6 +27,8 @@ type Config interface {
 
 // Router stores and handles the routes
 type Router struct {
+	// Mutex protects routes and filters
+	mu sync.RWMutex
 
 	// File handler
 	FileHandler ContextHandler
@@ -68,6 +71,9 @@ func (r *Router) Log(message string) {
 
 // Add a new route
 func (r *Router) Add(pattern string, handler ContextHandler) *Route {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	// Create a new route
 	route, err := NewRoute(pattern, handler)
 	if err != nil {
@@ -83,6 +89,8 @@ func (r *Router) Add(pattern string, handler ContextHandler) *Route {
 
 // AddRedirect adds a new redirect this is just a route with a redirect path set
 func (r *Router) AddRedirect(pattern string, redirectPath string, status int) *Route {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 
 	// Create a new route for redirecting - NB no handler or auth handler
 	route, err := NewRoute(pattern, nil)
@@ -101,6 +109,8 @@ func (r *Router) AddRedirect(pattern string, redirectPath string, status int) *R
 
 // AddFilter adds a new filter
 func (r *Router) AddFilter(filter ContextHandler) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	// Store this filter in the router list
 	r.filters = append(r.filters, filter)
 
@@ -174,9 +184,7 @@ func (r *Router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	// Call any filters
-	for _, f := range r.filters {
-		f(context)
-	}
+	r.runFilters(context)
 
 	// If handler is not nil, serve, else fall back to defaults
 	if handler != nil {
@@ -198,9 +206,21 @@ func (r *Router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 
 }
 
+func (r *Router) runFilters(context Context) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	for _, f := range r.filters {
+		f(context)
+	}
+}
+
 // This may return nil
 // Canonical path should have been cleaned first
 func (r *Router) findRoute(canonicalPath string, request *http.Request) *Route {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
 	for _, r := range r.routes {
 		// Check method (GET/PUT), then check path
 		if r.MatchMethod(request.Method) && r.MatchPath(canonicalPath) {
