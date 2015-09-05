@@ -38,10 +38,9 @@ type Router struct {
 
 	// A list of routes
 	routes []*Route
-    
+
 	// A list of pre-action filters, applied before any handler
 	filters []ContextHandler
-    
 }
 
 // New creates a new router
@@ -176,12 +175,7 @@ func (r *Router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 
 	// Call any filters
 	for _, f := range r.filters {
-		err := f(context)
-		if err != nil {
-			end := time.Since(started).String()
-			r.Logf("#error Filter error at %s in %s ERROR:%s", summary, err, end)
-			return
-		}
+		f(context)
 	}
 
 	// If handler is not nil, serve, else fall back to defaults
@@ -220,23 +214,22 @@ func (r *Router) findRoute(canonicalPath string, request *http.Request) *Route {
 func fileHandler(context Context) {
 
 	// Assuming we're running from the root of the website
-	localPath := "./public" + path.Clean(context.Path)
+	localPath := "./public" + path.Clean(context.Path())
 
 	if _, err := os.Stat(localPath); err != nil {
 		if os.IsNotExist(err) {
 			// Where it doesn't exist render not found
-			http.Redirect(context.Writer, context.Request, context.Path, http.StatusNotFound)
+			http.Redirect(context, context.Request(), context.Path(), http.StatusNotFound)
 			return
 		}
 
 		// For other errors return not authorised
-		http.Redirect(context.Writer, context.Request, context.Path, http.StatusUnauthorized)
+		http.Redirect(context, context.Request(), context.Path(), http.StatusUnauthorized)
 		return
 	}
 
-
 	// If the file exists and we can access it, serve it
-	http.ServeFile(context.Writer, context.Request, localPath)
+	http.ServeFile(context, context.Request(), localPath)
 }
 
 // Redirect uses status 302 StatusFound by default - this is not a permanent redirect
@@ -251,23 +244,18 @@ func Redirect(context Context, path string) {
 // We don't accept external or relative paths for security reasons
 func RedirectStatus(context Context, path string, status int) {
 
-	// Check for redirect in params, if it is valid, use that instead of default path
-	redirect := context.Param("redirect")
-	if len(redirect) > 0 {
-		path = redirect
-	}
-
 	// We check this is an internal path - to redirect externally use http.Redirect directly
-	if AbsoluteInternalPath(path) {
+	if strings.HasPrefix(path, "/") && !strings.Contains(path, ":") {
 		// Status may be any value, e.g.
 		// 301 - http.StatusMovedPermanently - permanent redirect
 		// 302 - http.StatusFound - tmp redirect
 		// 401 - Access denied
+		context.Logf("#info Redirecting (%d) to path:%s", status, path)
 		http.Redirect(context, context.Request(), path, status)
 		return
 	}
 
-	context.Log("#error Ignoring redirect to external path")
+	context.Logf("#error Ignoring redirect to external path %s", path)
 }
 
 // RedirectExternal redirects setting the status code (for example unauthorized), but does no checks on the path

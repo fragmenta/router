@@ -3,7 +3,6 @@ package router
 import (
 	"mime/multipart"
 	"net/http"
-	"strings"
 )
 
 // Context is a request context wrapping a response writer and the request details
@@ -242,31 +241,6 @@ func (c *ConcreteContext) Set(key string, data interface{}) {
 // Get retreives arbitrary data for this request
 func (c *ConcreteContext) Get(key string) interface{} {
 	return c.data[key]
-}
-
-// RedirectStatus redirects setting the status code (for example unauthorized)
-// We don't accept external or relative paths for security reasons
-func RedirectStatus(context Context, path string, status int) {
-
-	// Check for redirect in params, if it is valid, use that instead of default path
-	// This is potentially surprising behaviour - find where used and REMOVE IT FIXME:URGENT
-	redirect := context.Param("redirect")
-	if len(redirect) > 0 {
-		path = redirect
-	}
-
-	// We check this is an internal path - to redirect externally use http.Redirect directly
-	if strings.HasPrefix(path, "/") && !strings.Contains(path, ":") {
-		// Status may be any value, e.g.
-		// 301 - http.StatusMovedPermanently - permanent redirect
-		// 302 - http.StatusFound - tmp redirect
-		// 401 - Access denied
-		context.Logf("#info Redirecting (%d) to path:%s", status, path)
-		http.Redirect(context, context.Request(), path, status)
-		return
-	}
-
-	context.Logf("#error Ignoring redirect to external path %s", path)
 }
 
 // RenderContext returns a context for rendering the view
