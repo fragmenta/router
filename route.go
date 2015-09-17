@@ -12,7 +12,7 @@ import (
 // Route stores information to match a request and build URLs.
 type Route struct {
 	// An HTTP handler which accepts a context
-	Handler ContextHandler
+	Handler Handler
 
 	// If the route is simply a string we match against that
 	Pattern string
@@ -40,7 +40,7 @@ type Route struct {
 }
 
 // NewRoute creates a new Route, given a pattern to match and a handler for the route
-func NewRoute(pattern string, handler ContextHandler) (*Route, error) {
+func NewRoute(pattern string, handler Handler) (*Route, error) {
 
 	r := &Route{
 		Handler:      handler,

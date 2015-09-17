@@ -3,6 +3,7 @@ package router
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path"
@@ -11,8 +12,44 @@ import (
 	"time"
 )
 
-// ContextHandler is our standard handler function, accepting a router.Context interface
-type ContextHandler func(Context)
+// Redirect uses status 302 StatusFound by default - this is not a permanent redirect
+// We don't accept external or relative paths for security reasons
+func Redirect(context Context, path string) error {
+	// 301 - http.StatusMovedPermanently - permanent redirect
+	// 302 - http.StatusFound - tmp redirect
+	return RedirectStatus(context, path, http.StatusFound)
+}
+
+// RedirectStatus redirects setting the status code (for example unauthorized)
+// We don't accept external or relative paths for security reasons
+func RedirectStatus(context Context, path string, status int) error {
+
+	// We check this is an internal path - to redirect externally use http.Redirect directly
+	if strings.HasPrefix(path, "/") && !strings.Contains(path, ":") {
+		// Status may be any value, e.g.
+		// 301 - http.StatusMovedPermanently - permanent redirect
+		// 302 - http.StatusFound - tmp redirect
+		// 401 - Access denied
+		context.Logf("#info Redirecting (%d) to path:%s", status, path)
+		http.Redirect(context, context.Request(), path, status)
+		return nil
+	}
+
+	return fmt.Errorf("Ignoring redirect to external path %s", path)
+}
+
+// RedirectExternal redirects setting the status code (for example unauthorized), but does no checks on the path
+// Use with caution and only on completely known paths.
+func RedirectExternal(context Context, path string) error {
+	http.Redirect(context, context.Request(), path, http.StatusFound)
+	return nil
+}
+
+// Handler is our standard handler function, accepting a router.Context interface, and returning router.Error
+type Handler func(Context) error
+
+// ErrHandler is used to render a router.Error - used by ErrorHandler on the router
+type ErrHandler func(Context, error)
 
 // Logger Interface for a simple logger (the stdlib log pkg and the fragmenta log pkg conform)
 type Logger interface {
@@ -30,8 +67,11 @@ type Router struct {
 	// Mutex protects routes and filters
 	mu sync.RWMutex
 
-	// File handler
-	FileHandler ContextHandler
+	// File handler (sends files)
+	FileHandler Handler
+
+	// Error handler (renders errors)
+	ErrorHandler ErrHandler
 
 	// The logger passed to actions within the context on each request
 	Logger Logger
@@ -43,15 +83,16 @@ type Router struct {
 	routes []*Route
 
 	// A list of pre-action filters, applied before any handler
-	filters []ContextHandler
+	filters []Handler
 }
 
 // New creates a new router
 func New(l Logger, s Config) (*Router, error) {
 	r := &Router{
-		FileHandler: fileHandler,
-		Logger:      l,
-		Config:      s,
+		FileHandler:  fileHandler,
+		ErrorHandler: errHandler,
+		Logger:       l,
+		Config:       s,
 	}
 
 	// Set our router to handle all routes
@@ -70,7 +111,7 @@ func (r *Router) Log(message string) {
 }
 
 // Add a new route
-func (r *Router) Add(pattern string, handler ContextHandler) *Route {
+func (r *Router) Add(pattern string, handler Handler) *Route {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -108,12 +149,25 @@ func (r *Router) AddRedirect(pattern string, redirectPath string, status int) *R
 }
 
 // AddFilter adds a new filter
-func (r *Router) AddFilter(filter ContextHandler) {
+func (r *Router) AddFilter(filter Handler) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	// Store this filter in the router list
 	r.filters = append(r.filters, filter)
 
+}
+
+// AddFilterHTTP adds a standard HTTPHandler to filters
+// which runs before our RequestHandlers see the request
+// Try this out with something simple,
+// like something that sets the X-Header to something or other...
+func (r *Router) AddFilterHTTP(handler func(http.ResponseWriter, *http.Request)) {
+	f := func(context Context) error {
+		handler(context.Writer(), context.Request())
+		return nil
+	}
+
+	r.AddFilter(f)
 }
 
 // Reset stored state in routes (parsed params)
@@ -127,6 +181,10 @@ func (r *Router) Reset() {
 func (r *Router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	// Reset any cached state at the end of each request
 	defer r.Reset()
+
+	// Lock handlers/filters for duration of handling
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 
 	// Started GET "/" for 127.0.0.1 at 2014-07-01 14:15:32 +0100
 	started := time.Now()
@@ -149,27 +207,25 @@ func (r *Router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		r.Logf("#info Started %s", summary)
 	}
 
-	// Set up a handler to handle request if not redirected
-	var handler ContextHandler
-
-	var route *Route
-
 	// Try finding a route
-	route = r.findRoute(canonicalPath, request)
+	route := r.findRoute(canonicalPath, request)
 
+	// Our handler may end as nil
+	var handler Handler
 	if route != nil {
 
+		// Log route info
 		if logging {
 			r.Logf("#info Handling with route %s", route)
 		}
 
-		if route.Handler != nil {
-			handler = route.Handler
-		} else if route.RedirectStatus != 0 {
-			// Redirect to RedirectPath and return
+		// Handle redirects by redirecting and doing no more
+		if route.RedirectStatus != 0 {
 			http.Redirect(writer, request, route.RedirectPath, route.RedirectStatus)
 			return
 		}
+
+		handler = route.Handler
 	}
 
 	// Setup the context
@@ -184,13 +240,23 @@ func (r *Router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	// Call any filters
-	r.runFilters(context)
+	for _, f := range r.filters {
+		err := f(context)
+		if err != nil {
+			r.ErrorHandler(context, err)
+			return
+		}
+	}
 
 	// If handler is not nil, serve, else fall back to defaults
 	if handler != nil {
 
 		// Handle the request
-		handler(context)
+		err := handler(context)
+		if err != nil {
+			r.ErrorHandler(context, err)
+			return
+		}
 
 		// Log the end of handling
 		end := time.Since(started).String()
@@ -200,23 +266,17 @@ func (r *Router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		}
 
 	} else {
-		// If no route or handler, try default file handler to serve static files
-		r.FileHandler(context)
+		// If no route or handler, try default file handler to serve static files (no logging)
+		err := r.FileHandler(context)
+		if err != nil {
+			r.ErrorHandler(context, err)
+			return
+		}
 	}
 
 }
 
-func (r *Router) runFilters(context Context) {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	for _, f := range r.filters {
-		f(context)
-	}
-}
-
-// This may return nil
-// Canonical path should have been cleaned first
+// findRoute finds the matching route given a cleaned path - this may return nil
 func (r *Router) findRoute(canonicalPath string, request *http.Request) *Route {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -230,8 +290,8 @@ func (r *Router) findRoute(canonicalPath string, request *http.Request) *Route {
 	return nil
 }
 
-// Default static file handler - this is the last line of handlers
-func fileHandler(context Context) {
+// fileHandler is the default static file handler - this is the last line of handlers
+func fileHandler(context Context) error {
 
 	// Assuming we're running from the root of the website
 	localPath := "./public" + path.Clean(context.Path())
@@ -239,48 +299,44 @@ func fileHandler(context Context) {
 	if _, err := os.Stat(localPath); err != nil {
 		if os.IsNotExist(err) {
 			// Where it doesn't exist render not found
-			http.Redirect(context, context.Request(), context.Path(), http.StatusNotFound)
-			return
+			//	http.Redirect(context, context.Request(), context.Path(), http.StatusNotFound)
+			return NotFoundError(err)
 		}
 
 		// For other errors return not authorised
-		http.Redirect(context, context.Request(), context.Path(), http.StatusUnauthorized)
-		return
+		//	http.Redirect(context, context.Request(), context.Path(), http.StatusUnauthorized)
+		return NotAuthorizedError(err)
 	}
 
 	// If the file exists and we can access it, serve it
-	http.ServeFile(context, context.Request(), localPath)
+	http.ServeFile(context.Writer(), context.Request(), localPath)
+
+	return nil
 }
 
-// Redirect uses status 302 StatusFound by default - this is not a permanent redirect
-// We don't accept external or relative paths for security reasons
-func Redirect(context Context, path string) {
-	// 301 - http.StatusMovedPermanently - permanent redirect
-	// 302 - http.StatusFound - tmp redirect
-	RedirectStatus(context, path, http.StatusFound)
-}
+// errHandler is a simple error handler which writes the error to context.Writer - you might want to use templates instead
+// to improve error handling in your app
+func errHandler(context Context, e error) {
 
-// RedirectStatus redirects setting the status code (for example unauthorized)
-// We don't accept external or relative paths for security reasons
-func RedirectStatus(context Context, path string, status int) {
+	// Cast the error to a status error if it is one, if not wrap it in a Status 500 error
+	err := ToStatusError(e)
 
-	// We check this is an internal path - to redirect externally use http.Redirect directly
-	if strings.HasPrefix(path, "/") && !strings.Contains(path, ":") {
-		// Status may be any value, e.g.
-		// 301 - http.StatusMovedPermanently - permanent redirect
-		// 302 - http.StatusFound - tmp redirect
-		// 401 - Access denied
-		context.Logf("#info Redirecting (%d) to path:%s", status, path)
-		http.Redirect(context, context.Request(), path, status)
-		return
+	// Get the writer from context and write the error page
+	writer := context.Writer()
+
+	// Set the headers
+	writer.Header().Set("Content-Type", "text/html; charset=utf-8")
+	writer.WriteHeader(err.Status)
+
+	// Write a simple error message page
+	html := fmt.Sprintf("<h1>%s</h1><p>%s</p>", err.Title, err.Message)
+
+	// If NOT in production, write a more complex page which reveals the real error (later stack trace etc)
+	if !context.Production() {
+		html = fmt.Sprintf("<h1>%s</h1><p>%s</p><p>Error %d at %s</p><p><code>Error:%s</code></p>",
+			err.Title, err.Message, err.Status, err.FileLine(), err.Err.Error())
 	}
 
-	context.Logf("#error Ignoring redirect to external path %s", path)
-}
-
-// RedirectExternal redirects setting the status code (for example unauthorized), but does no checks on the path
-// Use with caution.
-func RedirectExternal(context Context, path string) {
-	http.Redirect(context, context.Request(), path, http.StatusFound)
-
+	context.Logf("#error %s\n", err)
+	io.WriteString(writer, html)
 }

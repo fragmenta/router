@@ -13,6 +13,8 @@ type Context interface {
 	// Request returns the http.Request embedded in this context
 	Request() *http.Request
 
+	Writer() http.ResponseWriter
+
 	// Request returns the cleaned path for this request
 	Path() string
 
@@ -83,6 +85,11 @@ func (c *ConcreteContext) Request() *http.Request {
 	return c.request
 }
 
+// Writer returns the http.ResponseWriter for responding to the request
+func (c *ConcreteContext) Writer() http.ResponseWriter {
+	return c.writer
+}
+
 // Route returns the route handling this request
 func (c *ConcreteContext) Route() *Route {
 	return c.route
@@ -107,8 +114,6 @@ func (c *ConcreteContext) WriteHeader(i int) {
 func (c *ConcreteContext) Logf(format string, v ...interface{}) {
 	c.logger.Printf(format, v...)
 }
-
-// TODO: Replace usages of Log with Logf, then remove  v ...interface{}
 
 // Log logs the given message using our logger
 func (c *ConcreteContext) Log(message string) {
@@ -186,36 +191,6 @@ func (c *ConcreteContext) ParamFiles(key string) ([]*multipart.FileHeader, error
 	}
 
 	return c.request.MultipartForm.File[key], nil
-
-	/*
-		// Research the best approach here
-			//get the multipart reader for the request.
-			reader, err := c.request.MultipartReader()
-
-			if err != nil {
-				return parts, err
-			}
-
-			//copy each part.
-			for {
-
-				part, err := reader.NextPart()
-				if err == io.EOF {
-					break
-				}
-
-				//if part.FileName() is empty, skip this iteration.
-				if part.FileName() == "" {
-					continue
-				}
-
-				parts = append(parts, part)
-
-			}
-
-			return parts, nil
-
-	*/
 }
 
 // Path returns the path for the request
