@@ -188,7 +188,7 @@ func (r *Router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 
 	// Started GET "/" for 127.0.0.1 at 2014-07-01 14:15:32 +0100
 	started := time.Now()
-	summary := fmt.Sprintf("%s %s for %s", request.Method, request.URL.Path, request.RemoteAddr)
+	summary := fmt.Sprintf("%s %s for %s", request.Method, request.URL.Path, remoteIP(request))
 
 	// Clean the path
 	canonicalPath := path.Clean(request.URL.Path)
@@ -339,4 +339,18 @@ func errHandler(context Context, e error) {
 
 	context.Logf("#error %s\n", err)
 	io.WriteString(writer, html)
+}
+
+func remoteIP(request *http.Request) string {
+	address := request.Header.Get("X-Real-IP")
+	if len(address) > 0 {
+		return address
+	}
+
+	address = request.Header.Get("X-Forwarded-For")
+	if len(address) > 0 {
+		return address
+	}
+
+	return request.RemoteAddr
 }
