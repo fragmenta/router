@@ -7,7 +7,6 @@ import (
 	"strings"
 )
 
-
 // Route stores information to match a request and build URLs.
 type Route struct {
 	// An HTTP handler which accepts a context

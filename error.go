@@ -61,7 +61,7 @@ func InternalError(e error, args ...string) *StatusError {
 	return err.setupFromArgs(args...)
 }
 
-// UnauthorisedError returns a new StatusError with Status StatusUnauthorized and optional Title and Message
+// NotAuthorizedError returns a new StatusError with Status StatusUnauthorized and optional Title and Message
 func NotAuthorizedError(e error, args ...string) *StatusError {
 	err := Error(e, http.StatusUnauthorized, "Not Allowed", "Sorry, I can't let you do that.")
 	return err.setupFromArgs(args...)
@@ -82,7 +82,7 @@ func Error(e error, s int, t string, m string) *StatusError {
 	return err
 }
 
-// ConvertToStatusError returns a *StatusError or wraps a standard error in a 500 StatusError
+// ToStatusError returns a *StatusError or wraps a standard error in a 500 StatusError
 func ToStatusError(e error) *StatusError {
 	if err, ok := e.(*StatusError); ok {
 		return err

@@ -12,39 +12,6 @@ import (
 	"time"
 )
 
-// Redirect uses status 302 StatusFound by default - this is not a permanent redirect
-// We don't accept external or relative paths for security reasons
-func Redirect(context Context, path string) error {
-	// 301 - http.StatusMovedPermanently - permanent redirect
-	// 302 - http.StatusFound - tmp redirect
-	return RedirectStatus(context, path, http.StatusFound)
-}
-
-// RedirectStatus redirects setting the status code (for example unauthorized)
-// We don't accept external or relative paths for security reasons
-func RedirectStatus(context Context, path string, status int) error {
-
-	// We check this is an internal path - to redirect externally use http.Redirect directly
-	if strings.HasPrefix(path, "/") && !strings.Contains(path, ":") {
-		// Status may be any value, e.g.
-		// 301 - http.StatusMovedPermanently - permanent redirect
-		// 302 - http.StatusFound - tmp redirect
-		// 401 - Access denied
-		context.Logf("#info Redirecting (%d) to path:%s", status, path)
-		http.Redirect(context, context.Request(), path, status)
-		return nil
-	}
-
-	return fmt.Errorf("Ignoring redirect to external path %s", path)
-}
-
-// RedirectExternal redirects setting the status code (for example unauthorized), but does no checks on the path
-// Use with caution and only on completely known paths.
-func RedirectExternal(context Context, path string) error {
-	http.Redirect(context, context.Request(), path, http.StatusFound)
-	return nil
-}
-
 // Handler is our standard handler function, accepting a router.Context interface, and returning router.Error
 type Handler func(Context) error
 
@@ -206,7 +173,7 @@ func (r *Router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	status := 200
 
 	// Log starting the request
-    // FIXME: We should have some way of excluding logs not hard-coded like this 
+	// FIXME: We should have some way of excluding logs not hard-coded like this
 	logging := !strings.HasPrefix(canonicalPath, "/assets") && !strings.HasPrefix(canonicalPath, "/files")
 	if logging {
 		r.Logf("#info Started %s", summary)
@@ -319,8 +286,7 @@ func fileHandler(context Context) error {
 	return nil
 }
 
-// errHandler is a simple error handler which writes the error to context.Writer - you might want to use templates instead
-// to improve error handling in your app
+// errHandler is a simple error handler which writes the error to context.Writer
 func errHandler(context Context, e error) {
 
 	// Cast the error to a status error if it is one, if not wrap it in a Status 500 error

@@ -13,6 +13,7 @@ type Context interface {
 	// Request returns the http.Request embedded in this context
 	Request() *http.Request
 
+	// Writer returns the http.ResponseWriter embedded in this context
 	Writer() http.ResponseWriter
 
 	// Request returns the cleaned path for this request
@@ -233,7 +234,6 @@ func (c *ConcreteContext) parseRequest() error {
 
 	// If we have a request body, parse it
 	// ParseMultipartForm results in a blank error if not multipart
-
 	err := c.request.ParseForm()
 	//   err := c.request.ParseMultipartForm(1024*20)
 	if err != nil {
