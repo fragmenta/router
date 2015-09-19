@@ -148,7 +148,7 @@ func (r *Router) AddRedirect(pattern string, redirectPath string, status int) *R
 	return route
 }
 
-// AddFilter adds a new filter
+// AddFilter adds a new filter to our list of filters to execute before request handlers
 func (r *Router) AddFilter(filter Handler) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -157,16 +157,21 @@ func (r *Router) AddFilter(filter Handler) {
 
 }
 
-// AddFilterHTTP adds a standard HTTPHandler to filters
-// which runs before our RequestHandlers see the request
-// Try this out with something simple,
-// like something that sets the X-Header to something or other...
-func (r *Router) AddFilterHTTP(handler func(http.ResponseWriter, *http.Request)) {
+// AddFilterHandler adds a standard http.Handler to filters wrapped in a ContextHandler
+func (r *Router) AddFilterHandler(handler http.Handler) {
+	f := func(context Context) error {
+		handler.ServeHTTP(context.Writer(), context.Request())
+		return nil
+	}
+	r.AddFilter(f)
+}
+
+// AddFilterHandlerFunc adds a standard http.HandlerFunc to filters wrapped in a ContextHandler
+func (r *Router) AddFilterHandlerFunc(handler http.HandlerFunc) {
 	f := func(context Context) error {
 		handler(context.Writer(), context.Request())
 		return nil
 	}
-
 	r.AddFilter(f)
 }
 
@@ -200,8 +205,8 @@ func (r *Router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 
 	status := 200
 
-	// Log starting the request - we should have some way of excluding logs
-	// not hard-coded like this FIXME
+	// Log starting the request
+    // FIXME: We should have some way of excluding logs not hard-coded like this 
 	logging := !strings.HasPrefix(canonicalPath, "/assets") && !strings.HasPrefix(canonicalPath, "/files")
 	if logging {
 		r.Logf("#info Started %s", summary)

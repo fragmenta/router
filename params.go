@@ -86,7 +86,7 @@ func (p Params) GetUniqueInts(key string) []int64 {
 		if err != nil {
 			vi = 0
 		}
-		if !Contains(ints, vi) {
+		if !contains(ints, vi) {
 			ints = append(ints, vi)
 		}
 	}
@@ -162,7 +162,7 @@ func (p Params) Remove(key string) {
 }
 
 // Contains returns true if this array of ints contains the given int
-func Contains(list []int64, item int64) bool {
+func contains(list []int64, item int64) bool {
 	for _, b := range list {
 		if b == item {
 			return true

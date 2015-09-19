@@ -7,7 +7,6 @@ import (
 	"strings"
 )
 
-// FIXME - remove AuthorizationHandler - move that to app, it should not concern us
 
 // Route stores information to match a request and build URLs.
 type Route struct {
