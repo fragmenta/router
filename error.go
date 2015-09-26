@@ -67,6 +67,12 @@ func NotAuthorizedError(e error, args ...string) *StatusError {
 	return err.setupFromArgs(args...)
 }
 
+// BadRequestError returns a new StatusError with Status StatusBadRequest and optional Title and Message
+func BadRequestError(e error, args ...string) *StatusError {
+	err := Error(e, http.StatusBadRequest, "Bad Request", "Sorry, there was an error processing your request, please check your data.")
+	return err.setupFromArgs(args...)
+}
+
 // Error returns a new StatusError with code StatusInternalServerError and a generic message
 func Error(e error, s int, t string, m string) *StatusError {
 	// Get runtime info - use zero values if none available
