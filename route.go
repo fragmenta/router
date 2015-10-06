@@ -24,9 +24,6 @@ type Route struct {
 	// Param names taken from the Pattern and matching params
 	ParamNames []string
 
-	// Params taken from the request path parsed with Regexp
-	Params map[string]string
-
 	// Redirect path - used to redirect if handler is nil
 	RedirectPath string
 
@@ -44,8 +41,6 @@ func NewRoute(pattern string, handler Handler) (*Route, error) {
 		Handler:      handler,
 		Pattern:      pattern,
 		PatternShort: shortPattern(pattern),
-		Regexp:       nil,
-		Params:       nil,
 		methods:      []string{"GET"}, // NB Get by default
 	}
 
@@ -103,14 +98,14 @@ func (r *Route) Methods(permitted ...string) *Route {
 }
 
 // Parse reads our params using the regexp from the given path
-func (r *Route) Parse(path string) {
+func (r *Route) Parse(path string) map[string]string {
 
 	// Set up our params map
-	r.Params = make(map[string]string)
+	params := make(map[string]string, 0)
 
 	// Go no farther if we have no regexp to match against
 	if r.Regexp == nil {
-		return
+		return params
 	}
 
 	matches := r.Regexp.FindStringSubmatch(path)
@@ -120,16 +115,12 @@ func (r *Route) Parse(path string) {
 			index := i + 1
 			if len(matches) > index {
 				value := matches[index]
-				r.Params[key] = value
+				params[key] = value
 			}
-
 		}
 	}
-}
 
-// Reset stored state in routes (parsed params)
-func (r *Route) Reset() {
-	r.Params = nil
+	return params
 }
 
 // MatchMethod returns true if our list of methods contains method

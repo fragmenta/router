@@ -145,10 +145,8 @@ func (c *ConcreteContext) Params() (Params, error) {
 	}
 
 	// Now add the route params to this list of params
-	if c.route.Params == nil {
-		c.route.Parse(c.path)
-	}
-	for k, v := range c.route.Params {
+	routeParams := c.route.Parse(c.path)
+	for k, v := range routeParams {
 		params.Add(k, v)
 	}
 
@@ -241,15 +239,4 @@ func (c *ConcreteContext) parseRequest() error {
 	}
 
 	return nil
-}
-
-// routeParam returns a param from the route - this may return empty string
-func (c *ConcreteContext) routeParam(key string) string {
-
-	// If we don't have params already, load them
-	if c.route.Params == nil {
-		c.route.Parse(c.path)
-	}
-
-	return c.route.Params[key]
 }

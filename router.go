@@ -142,17 +142,8 @@ func (r *Router) AddFilterHandlerFunc(handler http.HandlerFunc) {
 	r.AddFilter(f)
 }
 
-// Reset stored state in routes (parsed params)
-func (r *Router) Reset() {
-	for _, r := range r.routes {
-		r.Reset()
-	}
-}
-
 // ServeHTTP - Central dispatcher for web requests - sets up the context and hands off to handlers
 func (r *Router) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
-	// Reset any cached state at the end of each request
-	defer r.Reset()
 
 	// Lock handlers/filters for duration of handling
 	r.mu.RLock()
