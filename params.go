@@ -21,6 +21,19 @@ func (p Params) Map() map[string]string {
 	return flat
 }
 
+// Clean returns the params as a  map[string]string, discarding any multiple values, with any params not in the accepted list removed
+func (p Params) Clean(accepted []string) map[string]string {
+	flat := make(map[string]string)
+
+	for k, v := range p {
+		if containsString(accepted, k) {
+			flat[k] = v[0]
+		}
+	}
+
+	return flat
+}
+
 // Flatten deflates a set of params (of any type) to a comma separated list (only for simple params)
 func (p Params) Flatten(k string) string {
 	flat := ""
@@ -165,6 +178,16 @@ func (p Params) Remove(key string) {
 func contains(list []int64, item int64) bool {
 	for _, b := range list {
 		if b == item {
+			return true
+		}
+	}
+	return false
+}
+
+// containsString returns true if the string is in this list
+func containsString(allowed []string, p string) bool {
+	for _, v := range allowed {
+		if p == v {
 			return true
 		}
 	}
