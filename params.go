@@ -87,7 +87,8 @@ func (p Params) GetInts(key string) []int64 {
 	return ints
 }
 
-// GetUniqueInts returns all unique non-zero int values associated with the given key as an array of integers
+// GetUniqueInts returns all unique non-zero int values
+// associated with the given key as an array of integers
 func (p Params) GetUniqueInts(key string) []int64 {
 	ints := []int64{}
 
@@ -99,7 +100,9 @@ func (p Params) GetUniqueInts(key string) []int64 {
 		if err != nil {
 			vi = 0
 		}
-		if !contains(ints, vi) {
+
+		// Do not insert 0, or duplicate entries
+		if vi > 0 && !contains(ints, vi) {
 			ints = append(ints, vi)
 		}
 	}
