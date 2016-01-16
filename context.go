@@ -229,7 +229,8 @@ func (c *ConcreteContext) parseRequest() error {
 		return nil
 	}
 	var err error
-	if c.request.Header["Content-Type"][0][0:9] == "multipart" {
+	if len(c.request.Header["Content-Type"]) > 0 &&
+		c.request.Header["Content-Type"][0][0:9] == "multipart" {
 		// ParseMultipartForm results in a blank error if not multipart
 		err = c.request.ParseMultipartForm(1024*20)
 	} else {
