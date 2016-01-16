@@ -224,19 +224,16 @@ func (c *ConcreteContext) RenderContext() map[string]interface{} {
 
 // parseRequest parses our params from the request form (if any)
 func (c *ConcreteContext) parseRequest() error {
-
 	// If we have no request body, return
 	if c.request.Body == nil {
 		return nil
 	}
-
-	// If we have a request body, parse it
-	// ParseMultipartForm results in a blank error if not multipart
-	err := c.request.ParseForm()
-	//   err := c.request.ParseMultipartForm(1024*20)
-	if err != nil {
-		return err
+	var err error
+	if c.request.Header["Content-Type"][0][0:9] == "multipart" {
+		// ParseMultipartForm results in a blank error if not multipart
+		err = c.request.ParseMultipartForm(1024*20)
+	} else {
+		err = c.request.ParseForm()
 	}
-
-	return nil
+	return err
 }
