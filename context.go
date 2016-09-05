@@ -184,7 +184,7 @@ func (c *ConcreteContext) ParamInt(key string) int64 {
 func (c *ConcreteContext) ParamFiles(key string) ([]*multipart.FileHeader, error) {
 	var parts []*multipart.FileHeader
 
-	err := c.request.ParseMultipartForm(1024 * 20)
+	err := c.request.ParseMultipartForm(1024 * 83)
 	if err != nil {
 		return parts, err
 	}

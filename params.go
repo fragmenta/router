@@ -99,7 +99,7 @@ func (p Params) GetUniqueInts(key string) []int64 {
 		if err != nil {
 			vi = 0
 		}
-		if !contains(ints, vi) {
+		if vi > 0 && !contains(ints, vi) { // Do not insert 0, or duplicate entries
 			ints = append(ints, vi)
 		}
 	}
