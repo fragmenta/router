@@ -130,6 +130,30 @@ func (p Params) GetIntsString(key string) string {
 	return ints
 }
 
+// GetFloat returns the first value associated with the given key as an integer. If there is no value or a parse error, it returns 0.0
+func (p Params) GetFloat(key string) float64 {
+	var value float64
+	v := p.Get(key)
+	value, err := strconv.ParseFloat(v, 64)
+	if err != nil {
+		return 0.0
+	}
+	return value
+}
+
+// GetFloats returns all values associated with the given key as an array of floats.
+func (p Params) GetFloats(key string) []float64 {
+	var values []float64
+	for _, v := range p.GetAll(key) {
+		value, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			value = 0.0
+		}
+		values = append(values, value)
+	}
+	return values
+}
+
 // GetAll returns all values associated with the given key - equivalent to params[key].
 func (p Params) GetAll(key string) []string {
 	return p[key]
