@@ -103,6 +103,11 @@ func (r *Route) Parse(path string) map[string]string {
 	// Set up our params map
 	params := make(map[string]string, 0)
 
+	// If called on a nil route, return empty params
+	if r == nil {
+		return params
+	}
+
 	// Go no farther if we have no regexp to match against
 	if r.Regexp == nil {
 		return params
