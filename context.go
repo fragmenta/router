@@ -3,6 +3,7 @@ package router
 import (
 	"mime/multipart"
 	"net/http"
+	"path"
 )
 
 // Context is a request context wrapping a response writer and the request details
@@ -239,4 +240,26 @@ func (c *ConcreteContext) parseRequest() error {
 	}
 
 	return nil
+}
+
+// NewContext returns a new context
+// this should also be used in the Handle function and tests FIXME
+func NewContext(writer http.ResponseWriter, request *http.Request, route *Route, config Config, logger Logger) Context {
+	// Clean the path and store on context
+	canonicalPath := path.Clean(request.URL.Path)
+	if len(canonicalPath) == 0 {
+		canonicalPath = "/"
+	} else if canonicalPath[0] != '/' {
+		canonicalPath = "/" + canonicalPath
+	}
+
+	return &ConcreteContext{
+		writer:  writer,
+		request: request,
+		path:    canonicalPath,
+		logger:  logger,
+		route:   route,
+		config:  config,
+		data:    make(map[string]interface{}, 0),
+	}
 }
