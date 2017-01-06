@@ -3,6 +3,7 @@ package router
 import (
 	"bytes"
 	"fmt"
+	"net/http"
 	"regexp"
 	"strings"
 )
@@ -41,7 +42,7 @@ func NewRoute(pattern string, handler Handler) (*Route, error) {
 		Handler:      handler,
 		Pattern:      pattern,
 		PatternShort: shortPattern(pattern),
-		methods:      []string{"GET"}, // NB Get by default
+		methods:      []string{http.MethodGet, http.MethodHead}, // Allow GET and HEAD by default
 	}
 
 	// Check for regexps within pattern and parse if necessary
@@ -59,22 +60,22 @@ func NewRoute(pattern string, handler Handler) (*Route, error) {
 
 // Get sets the method exclusively to GET
 func (r *Route) Get() *Route {
-	return r.Method("GET")
+	return r.Method(http.MethodGet)
 }
 
 // Post sets the method exclusively to POST
 func (r *Route) Post() *Route {
-	return r.Method("POST")
+	return r.Method(http.MethodPost)
 }
 
 // Put sets the method exclusively to PUT
 func (r *Route) Put() *Route {
-	return r.Method("PUT")
+	return r.Method(http.MethodPut)
 }
 
 // Delete sets the method exclusively to DELETE
 func (r *Route) Delete() *Route {
-	return r.Method("DELETE")
+	return r.Method(http.MethodDelete)
 }
 
 // Method sets the method exclusively to method
@@ -133,7 +134,7 @@ func (r *Route) MatchMethod(method string) bool {
 
 	// We treat "" as GET by default
 	if method == "" {
-		method = "GET"
+		method = http.MethodGet
 	}
 
 	for _, v := range r.methods {
