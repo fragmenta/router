@@ -1,5 +1,5 @@
 # router
-A router which allows pattern matching, routes, redirects, filters and provides a handler interface
+A router which allows pattern matching, routes, redirects, filters and provides a handler interface. This router is now deprecated, use [fragmenta mux](https://github.com/fragmenta/mux) instead as in the example fragmenta/cms app, this requires changing the handler signature to one closer to the net/http standard library, and using a simpler context object. 
 
 
 ### Usage 
