@@ -134,6 +134,8 @@ func (p Params) GetIntsString(key string) string {
 func (p Params) GetFloat(key string) float64 {
 	var value float64
 	v := p.Get(key)
+	// Remove percent signs from float values
+	v = strings.Replace(v, "%", "", -1)
 	value, err := strconv.ParseFloat(v, 64)
 	if err != nil {
 		return 0.0
@@ -145,6 +147,8 @@ func (p Params) GetFloat(key string) float64 {
 func (p Params) GetFloats(key string) []float64 {
 	var values []float64
 	for _, v := range p.GetAll(key) {
+		// Remove percent signs from float values
+		v = strings.Replace(v, "%", "", -1)
 		value, err := strconv.ParseFloat(v, 64)
 		if err != nil {
 			value = 0.0
